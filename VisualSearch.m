@@ -18,6 +18,8 @@ DIMS = struct;
 DIMS.grid_row = 4; %These have to be even numbers...
 DIMS.grid_col = 4; %These have to be even numbers...
 DIMS.grid_totes = DIMS.grid_row*DIMS.grid_col;
+DIMS.maxside = 300;
+DIMS.minside = 30;
 
 STIM = struct;
 STIM.trialdur = 3;
@@ -145,8 +147,12 @@ for block = 1:STIM.blocks;
     for trial = 1:STIM.trials;
         [pics] = DrawPics4Trial(trial,block);
         [VST.data.rt(trial,block), VST.data.correct(trial,block)] = DoVisualSearch(trial, block, pics, rects, color_rects);
-        
+        %After trial, clear screen and wait in darkness for 500 ms.
+        Screen('Flip',w);
+        WaitSecs(.5)
     end
+    
+    %XXX: Do we want inter-block stats here?
 end
 
 %% Save
@@ -162,7 +168,7 @@ global DIMS wRect XCENTER YCENTER
 %of screen is determined. Then, images are 1/4th the side of that square
 %(minus the 3 x the gap between images.
 
-ylen = wRect(4)*8/10;           %Make square play area covering about 80% of screen.
+ylen = wRect(4)*8/10;           %Make square play area covering about 80% of vertical dimension of screen.
 gap = 10;                       %Gap size between each image
 square_side = fix((ylen - 3*gap)/4); %Size of image depends on size of screen.
 
@@ -193,6 +199,7 @@ currtri = ((block-1)*STIM.trials)+trial;
 trial_pics = zeros(DIMS.grid_totes,1);
 trial_picnums = VST.var.picnum_hi(currtri,:);
 
+
 for p = 1:DIMS.grid_totes;
     if trial_picnums(p) == 0;
         %load lo-cal food
@@ -214,7 +221,7 @@ global VST w COLORS DIMS STIM
 
 correct = -999;
 
-Screen('DrawTextures',w,pics,rects);
+Screen('DrawTextures',w,pics,[],rects);
 startRT = Screen('Flip',w);
 telap = GetSecs - startRT;
 
@@ -235,17 +242,50 @@ while telap < STIM.trialdur;
         clickedonbox = find(xmin & xmax & ymin & ymax);
         
         if ~isempty(clickedonbox);
+                rect_zoom = rects(:,clickedonbox);
+                color_zoom = color_rects(:,clickedonbox);
+                side = 0;
+                
+                %Which quadrant is it in?
+                switch clickedonbox;
+                    case {1,2,5,6}
+                        quad = 1;
+                    case {3,4,7,8}
+                        quad = 2;
+                    case{9,10,13,14}
+                        quad = 3;
+                    case{11,12,15,16}
+                        quad = 4;
+                end
             if clickedonbox == VST.var.lo_loc(trial,block);
                 %They have clicked lo-cal food. Do the zoom thing.
-                Screen('FillRect',w,COLORS.GREEN,color_rects(clickedonbox));
+                %Depending on image location, will need to pin image from
+                % different corners of box.
+                % Note: These are set up for a 4x4 grid and are not
+                % adaptable to other arrangements (currently).
+                while side < DIMS.maxside
+                    side = side + 10;
+                    quad_zoom = [rect_zoom+[0;0;side;side] rect_zoom+[0;-side;side;0] rect_zoom+[-side;0;0;side] rect_zoom+[-side;-side;0;0]];
+                    quadc_zoom = [color_zoom+[0;0;side;side] color_zoom+[0;-side;side;0] color_zoom+[-side;0;0;side] color_zoom+[-side;-side;0;0]];
+                    Screen('DrawTextures',w,pics,[],rects);
+                    Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom(:,quad));
+                    Screen('FillRect',w,COLORS.GREEN,quadc_zoom(quad));
+                    Screen('Flip',w);
+                end
                 correct = 1;
             else
-                %The mis-clicked on a hi-cal food
-                Screen('FillRect',w,COLORS.RED,color_rects(clickedonbox));
+                %This person mis-clicked on a hi-cal food
+                while side < DIMS.minside
+                    side = side + 1;
+                    quad_zoom = [rect_zoom+[0;0;-side;-side] rect_zoom+[0;side;-side;0] rect_zoom+[side;0;0;-side] rect_zoom+[side;side;0;0]];
+                    quadc_zoom = [color_zoom+[0;0;-side;-side] color_zoom+[0;side;-side;0] color_zoom+[side;0;0;-side] color_zoom+[side;side;0;0]];
+                    Screen('DrawTextures',w,pics,[],rects);
+                    Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom(:,quad));
+                    Screen('FillRect',w,COLORS.RED,quadc_zoom(quad));
+                    Screen('Flip',w);
+                end
                 correct = 0;
             end
-            Screen('DrawTextures',w,pics,rects);
-            Screen('Flip',w);
             break
         else
             FlushEvents();
@@ -253,7 +293,14 @@ while telap < STIM.trialdur;
     end
 end
 
-    
+if correct = -999
+    %If correct = -999, then no press was recorded. Throw incorrect response.
+    %XXX: Should there be some zoomy thing?
+    DrawFormattedText(w,'Time Expired','center','center',Colors.RED);
+    correct = 0;
+end
+
+FlushEvents();    
 
 end
 
