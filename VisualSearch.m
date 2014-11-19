@@ -2,6 +2,17 @@ function VisualSearch(varargin)
 
 global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
 
+% prompt={'SUBJECT ID' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
+% defAns={'4444' '' ''};
+% 
+% answer=inputdlg(prompt,'Please input subject info',1,defAns);
+% 
+% ID=str2double(answer{1});
+% % COND = str2double(answer{2});
+% SESS = str2double(answer{2});
+% prac = str2double(answer{3});
+
+
 ID = 4444;
 SESS = 1;
 
@@ -135,6 +146,37 @@ rects = DrawRectsGrid();
 % color_rects = [rects(1:2,:)-10; rects(3:4,:)+10];
 
 %% Practice
+% if prac == 1;
+    DrawFormattedText(w,' Let''s practice.\n\nPress any key to continue.','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait([],2);
+    
+    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to click on the image of the low calorie food as quickly as you can.\n\n Press any key to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
+    Screen('Flip',w);
+    KbWait([],2);
+    
+    while 1
+        [prac_pics] = DrawPics4Trial(0,0);
+        [~, prac_correct] = DoVisualSearch(0,0,prac_pics,rects);
+        if prac_correct == 0;
+            DrawFormattedText(w,'Try again!','center','center',COLORS.RED);
+            Screen('Flip',w);
+            WaitSecs(2);
+        elseif prac_correct == 1;
+            DrawFormattedText(w,'Very good!','center','center',COLORS.RED);
+            Screen('Flip',w);
+            WaitSecs(2);
+            break
+        end
+    end
+    
+    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food,so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Press any key when you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
+    Screen('Flip',w);
+    KbWait([],2);
+
+    
+% end
+
 
 %% The Task
 
@@ -152,13 +194,71 @@ for block = 1:STIM.blocks;
         WaitSecs(.5);
     end
     
-    %XXX: Do we want inter-block stats here?
+    %Interblock stats.
+    Screen('Flip',w);   %clear screen first.
+    
+    block_text = sprintf('Block %d Results',block);
+    %Find correct trials
+    c = find(VST.data.correct(:,block) == 1);
+    corr_count = sprintf('Number Correct:\t%d of %d',length(c),STIM.trials);  %Number correct = length of find(c)
+    corr_per = length(c)*100/STIM.trials;                           %Percent correct = length find(c) / total trials
+    corr_pert = sprintf('Percent Correct:\t%4.1f%%',corr_per);          %sprintf that data to string.
+    
+    if isempty(c)
+        %Don't try to calculate avg RT, they got them all wrong (WTF?)
+        %Display "N/A" for this block's RT.
+        ibt_rt = sprintf('Average RT:\tUnable to calculate RT.');
+    else
+%         block_go = DPT.var.GoNoGo(:,block) == 1;                        %Find go trials
+%         blockrts = DPT.data.rt(:,block);                                %Pull all RT data
+        blockrts = VST.data.rt(c,block);                                         %Resample RT only if correct.
+        avg_rt_block = fix(mean(blockrts)*1000);                        %Display avg rt in milliseconds.
+        ibt_rt = sprintf('Average RT:\t\t\t%3d milliseconds',avg_rt_block);
+    end
+    
+    ibt_xdim = wRect(3)/10;
+    ibt_ydim = wRect(4)/4;
+
+    DrawFormattedText(w,block_text,'center',wRect(4)/10,COLORS.WHITE);   %Next lines display all the data.
+    DrawFormattedText(w,corr_count,ibt_xdim,ibt_ydim,COLORS.WHITE);
+    DrawFormattedText(w,corr_pert,ibt_xdim,ibt_ydim+30,COLORS.WHITE);    
+    DrawFormattedText(w,ibt_rt,ibt_xdim,ibt_ydim+60,COLORS.WHITE);
+    %Screen('Flip',w);
+    
+    if block > 1
+        % Also display rest of block data summary
+        tot_trial = block * STIM.trials;
+        totes_c = find(VST.data.correct==1);
+        corr_count_totes = sprintf('Number Correct: \t%d of %d',length(totes_c),tot_trial);
+        corr_per_totes = length(totes_c)*100/tot_trial;
+        corr_pert_totes = sprintf('Percent Correct:\t%4.1f%%',corr_per_totes);
+        
+        if isempty(totes_c(totes_c ==1))
+            %Don't try to calculate RT, they have missed EVERY SINGLE GO
+            %TRIAL! 
+            %Stop task & alert experimenter?
+            tot_rt = sprintf('Block %d Average RT:\tUnable to calculate RT.',block);
+        else
+%             tot_go = DPT.var.GoNoGo == 1;
+%             totrts = DPT.data.rt;
+%             totrts = totrts(totes_c);
+            tote_rts = VST.data.rt(c);
+            avg_rt_tote = fix(mean(tote_rts)*1000);     %Display in units of milliseconds.
+            tot_rt = sprintf('Average RT:\t\t\t%3d milliseconds',avg_rt_tote);
+        end
+        
+        DrawFormattedText(w,'Total Results','center',ibt_ydim+120,COLORS.WHITE);
+        DrawFormattedText(w,corr_count_totes,ibt_xdim,ibt_ydim+150,COLORS.WHITE);
+        DrawFormattedText(w,corr_pert_totes,ibt_xdim,ibt_ydim+180,COLORS.WHITE);
+        DrawFormattedText(w,tot_rt,ibt_xdim,ibt_ydim+210,COLORS.WHITE);
+    end        
 end
 
 %% Save
 
 end
 
+%%
 function [ rects ] = DrawRectsGrid(varargin)
 %DrawRectGrid:  Builds a grid of squares with gaps in between.
 
@@ -189,32 +289,49 @@ end
 
 end
 
+%%
 function [trial_pics] = DrawPics4Trial(trial, block, varargin)
 %Draw images for trial of Visual Search task;
 
 global PICS VST w DIMS STIM
 
-currtri = ((block-1)*STIM.trials)+trial;
-
 trial_pics = zeros(DIMS.grid_totes,1);
-trial_picnums = VST.var.picnum_hi(currtri,:);
 
-
-for p = 1:DIMS.grid_totes;
-    if trial_picnums(p) == 0;
-        %load lo-cal food
-        thispic = imread(getfield(PICS,'in','lo',{VST.var.picnum_lo(trial,block)},'name'));
-    else
-        %load hi-cal food
-        thispic = imread(getfield(PICS,'in','hi',{trial_picnums(p)},'name'));
-        
+if trial == 0 && block == 0;
+    %PRACTICE TRIAL.
+    %Just pick first 15 hi cal & 1 st local food in list.
+    for p = 1:16;
+        thispic = imread(getfield(PICS,'in','hi',{p},'name'));
+        trial_pics(p) = Screen('MakeTexture',w,thispic);
     end
-    trial_pics(p) = Screen('MakeTexture',w,thispic);
-end
+    %Put lo cal food in square 10
+    thispic = imread(getfield(PICS,'in','lo',{1},'name'));
+    trial_pics(10) = Screen('MakeTexture',w,thispic);
+
+else
+    currtri = ((block-1)*STIM.trials)+trial;
     
+%     trial_pics = zeros(DIMS.grid_totes,1);
+    trial_picnums = VST.var.picnum_hi(currtri,:);
+    
+    
+    for p = 1:DIMS.grid_totes;
+        if trial_picnums(p) == 0;
+            %load lo-cal food
+            thispic = imread(getfield(PICS,'in','lo',{VST.var.picnum_lo(trial,block)},'name'));
+        else
+            %load hi-cal food
+            thispic = imread(getfield(PICS,'in','hi',{trial_picnums(p)},'name'));
+            
+        end
+        trial_pics(p) = Screen('MakeTexture',w,thispic);
+    end
+end
+
 
 end
 
+%%
 function [rt, correct] = DoVisualSearch(trial, block, pics, rects, varargin)
 
 global VST w COLORS DIMS STIM
@@ -225,7 +342,15 @@ Screen('DrawTextures',w,pics,[],rects);
 startRT = Screen('Flip',w);
 telap = GetSecs - startRT;
 
-while telap < STIM.trialdur;
+if trial == 0 && block == 0;
+    trial_duration = 5000;     %If practice, duration = some arbitrary large time.
+    boxcheck = 10;             %If practice, lo cal food = box 10.
+else
+    trial_duration = STIM.trialdur;
+    boxcheck = VST.var.lo_loc(trial,block);
+end
+
+while telap < trial_duration;
     telap = GetSecs - startRT;
     [x,y,button] = GetMouse();
     if button(1);
@@ -242,22 +367,22 @@ while telap < STIM.trialdur;
         clickedonbox = find(xmin & xmax & ymin & ymax);
         
         if ~isempty(clickedonbox);
-                rect_zoom = rects(:,clickedonbox);
-%                 color_zoom = color_rects(:,clickedonbox);
-                side = 0;
-                
-                %Which quadrant is it in?
-                switch clickedonbox;
-                    case {1,2,5,6}
-                        quad = 1;
-                    case {3,4,7,8}
-                        quad = 2;
-                    case{9,10,13,14}
-                        quad = 3;
-                    case{11,12,15,16}
-                        quad = 4;
-                end
-            if clickedonbox == VST.var.lo_loc(trial,block);
+            rect_zoom = rects(:,clickedonbox);
+            %                 color_zoom = color_rects(:,clickedonbox);
+            side = 0;
+            
+            %Which quadrant is it in?
+            switch clickedonbox;
+                case {1,2,5,6}
+                    quad = 1;
+                case {3,4,7,8}
+                    quad = 2;
+                case{9,10,13,14}
+                    quad = 3;
+                case{11,12,15,16}
+                    quad = 4;
+            end
+            if clickedonbox == boxcheck;
                 %They have clicked lo-cal food. Do the zoom thing.
                 %Depending on image location, will need to pin image from
                 % different corners of box.
@@ -267,8 +392,8 @@ while telap < STIM.trialdur;
                 break
             else
                 %This person mis-clicked on a hi-cal food
-               correct = 0;
-               break
+                correct = 0;
+                break
             end
         else
             FlushEvents();
@@ -298,15 +423,16 @@ elseif correct == 0;
     while side < DIMS.minside
         side = side + 1;
         quad_zoom = rect_zoom + [side;side;-side;-side];
-%         quad_zoom = [rect_zoom+[0;0;-side;-side] rect_zoom+[0;side;-side;0] rect_zoom+[side;0;0;-side] rect_zoom+[side;side;0;0]];
-        quadc_zoom = rect_zoom + [-10;-10;10;10];        
+        %         quad_zoom = [rect_zoom+[0;0;-side;-side] rect_zoom+[0;side;-side;0] rect_zoom+[side;0;0;-side] rect_zoom+[side;side;0;0]];
+        quadc_zoom = rect_zoom + [-10;-10;10;10];
         Screen('DrawTextures',w,pics,[],rects);
-        Screen('FillRect',w,COLORS.RED,quadc_zoom(:,quad));
+        Screen('FillRect',w,COLORS.RED,quadc_zoom);
         Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom(:,quad));
         Screen('Flip',w);
     end
     WaitSecs(.5);
 end
+
 
 FlushEvents();    
 
