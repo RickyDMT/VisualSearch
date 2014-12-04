@@ -97,7 +97,7 @@ VST.data.info.date = sprintf('%s %2.0f:%02.0f',date,d(4),d(5));
 
 %%
 %change this to 0 to fill whole screen
-DEBUG=0;
+DEBUG=0   ;
 
 %set up the screen and dimensions
 
@@ -105,7 +105,7 @@ DEBUG=0;
 %only 1 monitor, then it just chooses that one)
 Screen('Preference', 'SkipSyncTests', 1)
 
-screenNumber= 1; %max(Screen('Screens'));
+screenNumber= max(Screen('Screens'));
 
 if DEBUG==1;
     %create a rect for the screen
@@ -256,6 +256,7 @@ end
 
 %% Save
 
+% XXX: Need save function here.
 end
 
 %%
