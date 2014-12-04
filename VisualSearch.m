@@ -1,4 +1,5 @@
 function VisualSearch(varargin)
+%12/4/14: Needs Rated Pics added.
 
 global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
 
