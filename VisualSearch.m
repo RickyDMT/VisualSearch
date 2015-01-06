@@ -2,6 +2,9 @@ function VisualSearch(varargin)
 %12/4/14: Needs Rated Pics added.
 
 global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
+% Notes: Top 80 pics are chosen from low and high calorie foods, but the
+% distractor images (high cal foods) are chosen randomly for each trial.
+% They are repeated often.
 
 % prompt={'SUBJECT ID' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
 % defAns={'4444' '' ''};
@@ -16,6 +19,7 @@ global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
 
 ID = 4444;
 SESS = 1;
+COND = 1;
 
 rng(ID); %Seed random number generator with subject ID
 d = clock;
@@ -41,33 +45,76 @@ STIM.totes = STIM.trials * STIM.blocks;
 
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
-
-[imgdir,~,~] = fileparts(which('VisualSearch.m'));
+[imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
+picratefolder = fullfile(imgdir,'SavingsRatings');
 
 try
-    cd([imgdir filesep 'IMAGES'])
+    cd(picratefolder)
 catch
-    error('Could not find and/or open the IMAGES folder.');
+    error('Could not find and/or open the image directory. Please check that it exists and is saved in the path.');
 end
 
+filen = sprintf('PicRate_%d.mat',ID);
+try
+    p = open(filen);
+catch
+    warning('Could not find and/or open the rating file.');
+    commandwindow;
+    randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
+    if randopics == 1
+        cd(imgdir);
+        p = struct;
+        p.PicRating.go = dir('Healthy*');
+        p.PicRating.no = dir('Unhealthy*');
+        %XXX: ADD RANDOMIZATION SO THAT SAME 80 IMAGES AREN'T CHOSEN
+        %EVERYTIME
+    else
+        error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
+    end
+    
+end
+
+cd(imgdir);
+ 
 PICS =struct;
-% if COND == 1;                   %Condtion = 1 is food. 
-    PICS.in.lo = dir('good*.jpg');
-    PICS.in.hi = dir('*bad*.jpg');
-%     PICS.in.neut = dir('*water*.jpg');
-% elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
-%     PICS.in.hi = dir('*bird*.jpg');
-%     PICS.in.hi = dir('*flowers*.jpg');
-%     PICS.in.neut = dir('*mam*.jpg');
-% end
-% picsfields = fieldnames(PICS.in);
+if COND == 1;                   %Condtion = 1 is food. 
+%     PICS.in.go = dir('good*.jpg');
+%     PICS.in.no = dir('*bad*.jpg');
+%Choose top 80 most appetizing pics)
+    PICS.in.lo = struct('name',{p.PicRating.go(1:80).name}');
+    PICS.in.hi = struct('name',{p.PicRating.no(1:80).name}');
+elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
+    PICS.in.lo = dir('Bird*');
+    PICS.in.hi = dir('Flowers*');
+end
+% % 
+% % 
+% % [imgdir,~,~] = fileparts(which('VisualSearch.m'));
+% % 
+% % try
+% %     cd([imgdir filesep 'IMAGES'])
+% % catch
+% %     error('Could not find and/or open the IMAGES folder.');
+% % end
+% % 
+% % PICS =struct;
+% % % if COND == 1;                   %Condtion = 1 is food. 
+% %     PICS.in.lo = dir('good*.jpg');
+% %     PICS.in.hi = dir('*bad*.jpg');
+% % %     PICS.in.neut = dir('*water*.jpg');
+% % % elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
+% % %     PICS.in.hi = dir('*bird*.jpg');
+% % %     PICS.in.hi = dir('*flowers*.jpg');
+% % %     PICS.in.neut = dir('*mam*.jpg');
+% % % end
+% % % picsfields = fieldnames(PICS.in);
 
 picdiff = STIM.totes - length(PICS.in.lo);
 if picdiff > 0;
     %if pic list is too short, increase it arbitrarily
     PICS.in.lo = [PICS.in.lo; PICS.in.lo(1:picdiff)];
 elseif picdiff < 0;
-    %Pic list is too long; arbitrarily increase it
+    %Pic list is too long; arbitrarily decrease it
     PICS.in.lo = PICS.in.lo(1:STIM.totes);
 end
 
@@ -405,7 +452,7 @@ end
 
 if correct == -999
     %If correct = -999, then no press was recorded. Throw incorrect response.
-    %XXX: Should there be some zoomy thing?
+    %XXX: Should there be some zoomy thing?  NO.
     DrawFormattedText(w,'Time Expired','center','center',COLORS.RED);
     rt = -999;
     correct = 0;
@@ -420,21 +467,23 @@ elseif correct == 1;
         Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom(:,quad));
         Screen('Flip',w);
     end
-    WaitSecs(.5);
+%     WaitSecs(.5);
 elseif correct == 0;
     while side < DIMS.minside
         side = side + 1;
         quad_zoom = rect_zoom + [side;side;-side;-side];
         %         quad_zoom = [rect_zoom+[0;0;-side;-side] rect_zoom+[0;side;-side;0] rect_zoom+[side;0;0;-side] rect_zoom+[side;side;0;0]];
         quadc_zoom = rect_zoom + [-10;-10;10;10];
-        Screen('DrawTextures',w,pics,[],rects);
+        Screen('FillRect',w,COLORS.RED,(rects(:,boxcheck)+[-10;-10;10;10]));            
+        Screen('DrawTextures',w,pics,[],rects);  
         Screen('FillRect',w,COLORS.RED,quadc_zoom);
-        Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom(:,quad));
+        Screen('DrawTexture',w,pics(clickedonbox),[],quad_zoom);
         Screen('Flip',w);
     end
-    WaitSecs(.5);
+%     WaitSecs(.5);
 end
 
+WaitSecs(.5);
 
 FlushEvents();    
 
