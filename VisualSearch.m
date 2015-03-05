@@ -1,25 +1,23 @@
 function VisualSearch(varargin)
-%12/4/14: Needs Rated Pics added.
+%3/5/15: Needs to grab preslected random 60 from top 80.
+%3/5/15: Needs formatting changes (e.g., text display location) to
+%           interblock info screens
 
 global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
 % Notes: Top 80 pics are chosen from low and high calorie foods, but the
 % distractor images (high cal foods) are chosen randomly for each trial.
 % They are repeated often.
 
-% prompt={'SUBJECT ID' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
-% defAns={'4444' '' ''};
-% 
-% answer=inputdlg(prompt,'Please input subject info',1,defAns);
-% 
-% ID=str2double(answer{1});
-% % COND = str2double(answer{2});
-% SESS = str2double(answer{2});
-% prac = str2double(answer{3});
+prompt={'SUBJECT ID' 'Condition (1 or 2)' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
+defAns={'4444' '1' '1' '0'};
 
+answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
-ID = 4444;
-SESS = 1;
-COND = 1;
+ID=str2double(answer{1});
+COND = str2double(answer{2});
+SESS = str2double(answer{3});
+prac = str2double(answer{4});
+
 
 rng(ID); %Seed random number generator with subject ID
 d = clock;
@@ -35,24 +33,25 @@ DIMS.grid_row = 4; %These have to be even numbers...
 DIMS.grid_col = 4; %These have to be even numbers...
 DIMS.grid_totes = DIMS.grid_row*DIMS.grid_col;
 DIMS.maxside = 300;
-DIMS.minside = 60;
+DIMS.minside = 70;
 
 STIM = struct;
 STIM.trialdur = 3;
 STIM.trials = 30;
 STIM.blocks = 4;
 STIM.totes = STIM.trials * STIM.blocks;
+STIM.pracloc = [2;10;11];
 
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
 [imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
 picratefolder = fullfile(imgdir,'SavingsRatings');
 
-try
-    cd(picratefolder)
-catch
-    error('Could not find and/or open the image directory. Please check that it exists and is saved in the path.');
-end
+% try
+%     cd(picratefolder)
+% catch
+%     error('Could not find and/or open the image directory. Please check that it exists and is saved in the path.');
+% end
 
 filen = sprintf('PicRate_%d.mat',ID);
 try
@@ -126,13 +125,13 @@ end
 
 %% Setup Trial Variables
 VST = struct;
-VST.var.picnum_lo = reshape((randperm(length(PICS.in.lo))),STIM.trials,STIM.blocks);    %Pic random order of 120 hi cal images
+VST.var.picnum_lo = reshape([randperm(60) randperm(60)],STIM.trials,STIM.blocks);    %Pic random order of 120 hi cal images
 VST.var.lo_loc = randi(DIMS.grid_totes,STIM.trials,STIM.blocks);                        %Location for lo-cal food.
 for xx = 1:STIM.totes;
     %Load random sets of hi-cal food to fill in image grid. Each row in
     %VST.var.picnum_hi represents the 15 (or whatever #) of hi-cal foods to
     %display for each trial
-    VST.var.picnum_hi(xx,1:(DIMS.grid_totes)) = randi(length(PICS.in.hi),1,16);
+    VST.var.picnum_hi(xx,1:(DIMS.grid_totes)) = randperm(length(PICS.in.hi),DIMS.grid_totes);
     VST.var.picnum_hi(xx,VST.var.lo_loc(xx)) = 0;
 end
 VST.data.rt = zeros(STIM.trials,STIM.blocks);
@@ -145,7 +144,7 @@ VST.data.info.date = sprintf('%s %2.0f:%02.0f',date,d(4),d(5));
 
 %%
 %change this to 0 to fill whole screen
-DEBUG=0   ;
+DEBUG=0;
 
 %set up the screen and dimensions
 
@@ -194,36 +193,42 @@ rects = DrawRectsGrid();
 % color_rects = [rects(1:2,:)-10; rects(3:4,:)+10];
 
 %% Practice
-% if prac == 1;
+if prac == 1;
     DrawFormattedText(w,' Let''s practice.\n\nPress any key to continue.','center','center',COLORS.WHITE);
     Screen('Flip',w);
     KbWait([],2);
     
-    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to click on the image of the low calorie food as quickly as you can.\n\n Press any key to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
+    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to click on the image of the healthy food as quickly as you can.\n\n Press any key to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
     KbWait([],2);
     
-    while 1
-        [prac_pics] = DrawPics4Trial(0,0);
-        [~, prac_correct] = DoVisualSearch(0,0,prac_pics,rects);
-        if prac_correct == 0;
-            DrawFormattedText(w,'Try again!','center','center',COLORS.RED);
-            Screen('Flip',w);
-            WaitSecs(2);
-        elseif prac_correct == 1;
-            DrawFormattedText(w,'Very good!','center','center',COLORS.RED);
-            Screen('Flip',w);
-            WaitSecs(2);
-            break
+    for practicernd = 1:3;
+        while 1
+            [prac_pics] = DrawPics4Trial(practicernd,0);
+            [~, prac_correct] = DoVisualSearch(practicernd,0,prac_pics,rects);
+            if prac_correct == 0;
+                DrawFormattedText(w,'Try again!','center','center',COLORS.RED);
+                Screen('Flip',w);
+                WaitSecs(2);
+            elseif prac_correct == 1;
+                if practicernd < 3;
+                    DrawFormattedText(w,'Very good! Let''s try another...','center','center',COLORS.RED);
+                else
+                    DrawFormattedText(w,'Excellent work!','center','center',COLORS.RED);
+                end
+                Screen('Flip',w);
+                WaitSecs(2);
+                break
+            end
         end
     end
     
-    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food,so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Press any key when you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
+    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food, so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Press any key when you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
     KbWait([],2);
 
     
-% end
+end
 
 
 %% The Task
@@ -346,16 +351,16 @@ global PICS VST w DIMS STIM
 
 trial_pics = zeros(DIMS.grid_totes,1);
 
-if trial == 0 && block == 0;
+if block == 0;
     %PRACTICE TRIAL.
     %Just pick first 15 hi cal & 1 st local food in list.
     for p = 1:16;
         thispic = imread(getfield(PICS,'in','hi',{p},'name'));
         trial_pics(p) = Screen('MakeTexture',w,thispic);
     end
-    %Put lo cal food in square 10
+    %Put lo cal food in random location
     thispic = imread(getfield(PICS,'in','lo',{1},'name'));
-    trial_pics(10) = Screen('MakeTexture',w,thispic);
+    trial_pics(STIM.pracloc(trial)) = Screen('MakeTexture',w,thispic);
 
 else
     currtri = ((block-1)*STIM.trials)+trial;
@@ -391,9 +396,9 @@ Screen('DrawTextures',w,pics,[],rects);
 startRT = Screen('Flip',w);
 telap = GetSecs - startRT;
 
-if trial == 0 && block == 0;
+if block == 0;
     trial_duration = 5000;     %If practice, duration = some arbitrary large time.
-    boxcheck = 10;             %If practice, lo cal food = box 10.
+    boxcheck = STIM.pracloc(trial);             %If practice, lo cal food is in 2, 10, or 11
 else
     trial_duration = STIM.trialdur;
     boxcheck = VST.var.lo_loc(trial,block);
@@ -452,7 +457,6 @@ end
 
 if correct == -999
     %If correct = -999, then no press was recorded. Throw incorrect response.
-    %XXX: Should there be some zoomy thing?  NO.
     DrawFormattedText(w,'Time Expired','center','center',COLORS.RED);
     rt = -999;
     correct = 0;
