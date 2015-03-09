@@ -194,13 +194,25 @@ rects = DrawRectsGrid();
 
 %% Practice
 if prac == 1;
-    DrawFormattedText(w,' Let''s practice.\n\nPress any key to continue.','center','center',COLORS.WHITE);
+    DrawFormattedText(w,' Let''s practice.\n\nSwipe on the screen to continue.','center','center',COLORS.WHITE);
     Screen('Flip',w);
-    KbWait([],2);
+%     KbWait([],2);
+    while 1
+        [~, ~, prac1button] = GetMouse();
+        if prac1button
+            break
+        end
+    end
     
-    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to click on the image of the healthy food as quickly as you can.\n\n Press any key to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
+    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the healthy food as quickly as you can.\n\n Swipe on the screen to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
-    KbWait([],2);
+%     KbWait([],2);
+    while 1
+        [~, ~, prac2button] = GetMouse();
+        if prac2button
+            break
+        end
+    end
     
     for practicernd = 1:3;
         while 1
@@ -223,9 +235,15 @@ if prac == 1;
         end
     end
     
-    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food, so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Press any key when you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
+    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food, so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Swipe on the screen you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
-    KbWait([],2);
+%     KbWait([],2);
+    while 1
+        [~, ~, prac3button] = GetMouse();
+        if prac3button
+            break
+        end
+    end
 
     
 end
@@ -234,7 +252,7 @@ end
 %% The Task
 
 for block = 1:STIM.blocks;
-    ibt = sprintf('Prepare for Block %d. \n\n\nPress any key when you are ready to begin.',block);
+    ibt = sprintf('Prepare for Block %d. \n\n\nSwipe on the screen when you are ready to begin.',block);
     DrawFormattedText(w,ibt,'center','center',COLORS.WHITE);
     Screen('Flip',w);
     KbWait();
@@ -253,58 +271,50 @@ for block = 1:STIM.blocks;
     block_text = sprintf('Block %d Results',block);
     %Find correct trials
     c = find(VST.data.correct(:,block) == 1);
-    corr_count = sprintf('Number Correct:\t%d of %d',length(c),STIM.trials);  %Number correct = length of find(c)
     corr_per = length(c)*100/STIM.trials;                           %Percent correct = length find(c) / total trials
-    corr_pert = sprintf('Percent Correct:\t%4.1f%%',corr_per);          %sprintf that data to string.
     
     if isempty(c)
         %Don't try to calculate avg RT, they got them all wrong (WTF?)
         %Display "N/A" for this block's RT.
-        ibt_rt = sprintf('Average RT:\tUnable to calculate RT.');
+        fulltext = sprintf('Number Correct:\t%d of %d\nPercent Correct:\t%4.1f%%\nAverage RT:\tUnable to calculate RT due to 0 correct trials.',length(find(c)),STIM.trials,corr_per);
+        
     else
-%         block_go = DPT.var.GoNoGo(:,block) == 1;                        %Find go trials
-%         blockrts = DPT.data.rt(:,block);                                %Pull all RT data
         blockrts = VST.data.rt(c,block);                                         %Resample RT only if correct.
-        avg_rt_block = fix(mean(blockrts)*1000);                        %Display avg rt in milliseconds.
-        ibt_rt = sprintf('Average RT:\t\t\t%3d milliseconds',avg_rt_block);
+        VST.data.avg_rt(block) = fix(mean(blockrts)*1000);                       %Display avg rt in milliseconds.
+        fulltext = sprintf('Number Correct:\t%d of %d\nPercent Correct:\t%4.1f%%\nAverage RT:\t\t\t%3d milliseconds',length(find(c)),STIM.trials,corr_per,VST.data.avg_rt(block));
+
     end
     
     ibt_xdim = wRect(3)/10;
     ibt_ydim = wRect(4)/4;
 
     DrawFormattedText(w,block_text,'center',wRect(4)/10,COLORS.WHITE);   %Next lines display all the data.
-    DrawFormattedText(w,corr_count,ibt_xdim,ibt_ydim,COLORS.WHITE);
-    DrawFormattedText(w,corr_pert,ibt_xdim,ibt_ydim+30,COLORS.WHITE);    
-    DrawFormattedText(w,ibt_rt,ibt_xdim,ibt_ydim+60,COLORS.WHITE);
-    %Screen('Flip',w);
+    DrawFormattedText(w,fulltext,ibt_xdim,ibt_ydim,COLORS.WHITE,[],[],[],1.5);
     
     if block > 1
         % Also display rest of block data summary
         tot_trial = block * STIM.trials;
         totes_c = find(VST.data.correct==1);
-        corr_count_totes = sprintf('Number Correct: \t%d of %d',length(totes_c),tot_trial);
         corr_per_totes = length(totes_c)*100/tot_trial;
-        corr_pert_totes = sprintf('Percent Correct:\t%4.1f%%',corr_per_totes);
         
         if isempty(totes_c(totes_c ==1))
             %Don't try to calculate RT, they have missed EVERY SINGLE GO
             %TRIAL! 
             %Stop task & alert experimenter?
-            tot_rt = sprintf('Block %d Average RT:\tUnable to calculate RT.',block);
+            fullblocktext = sprintf('Number Correct:\t\t%d of %d\nPercent Correct:\t\t%4.1f%%\nAverage RT:\tUnable to calculate RT due to 0 correct trials.',length(find(totes_c)),tot_trial,corr_per_totes);            
         else
-%             tot_go = DPT.var.GoNoGo == 1;
-%             totrts = DPT.data.rt;
-%             totrts = totrts(totes_c);
-            tote_rts = VST.data.rt(c);
+            tote_rts = VST.data.rt(totes_c);
             avg_rt_tote = fix(mean(tote_rts)*1000);     %Display in units of milliseconds.
-            tot_rt = sprintf('Average RT:\t\t\t%3d milliseconds',avg_rt_tote);
+            fullblocktext = sprintf('Number Correct:\t\t%d of %d\nPercent Correct:\t\t%4.1f%%\nAverage RT:\t\t\t%3d milliseconds',length(find(totes_c)),tot_trial,corr_per_totes,avg_rt_tote);
+
         end
         
         DrawFormattedText(w,'Total Results','center',ibt_ydim+120,COLORS.WHITE);
-        DrawFormattedText(w,corr_count_totes,ibt_xdim,ibt_ydim+150,COLORS.WHITE);
-        DrawFormattedText(w,corr_pert_totes,ibt_xdim,ibt_ydim+180,COLORS.WHITE);
-        DrawFormattedText(w,tot_rt,ibt_xdim,ibt_ydim+210,COLORS.WHITE);
-    end        
+        DrawFormattedText(w,fullblocktext,ibt_xdim,YCENTER+40,COLORS.WHITE,[],[],[],1.5);
+    end
+    DrawFormattedText(w,'Swipe on the screen to continue','center',wRect(4)*9/10,COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait([],2);
 end
 
 %% Save
