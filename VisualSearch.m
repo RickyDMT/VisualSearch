@@ -1,14 +1,17 @@
 function VisualSearch(varargin)
-%3/5/15: Needs to grab preslected random 60 from top 80.
-%3/5/15: Needs formatting changes (e.g., text display location) to
+%DONE:3/5/15: Needs to grab preslected random 60 from top 80.
+%DONE:3/5/15: Needs formatting changes (e.g., text display location) to
 %           interblock info screens
+% DONE:3/5/15: Add instructions to swipe
+% 3/5/15: Click to continue.
+% 3/5/15: Update mdir imgdir picratedir for file finding
 
 global DIMS wRect XCENTER YCENTER STIM COLORS PICS VST w
 % Notes: Top 80 pics are chosen from low and high calorie foods, but the
 % distractor images (high cal foods) are chosen randomly for each trial.
 % They are repeated often.
 
-prompt={'SUBJECT ID' 'Condition (1 or 2)' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
+prompt={'SUBJECT ID' 'Condition (1 or 2)' 'Session (1, 2, 3, or 4)' 'Practice? 0 or 1'};
 defAns={'4444' '1' '1' '0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
@@ -18,8 +21,8 @@ COND = str2double(answer{2});
 SESS = str2double(answer{3});
 prac = str2double(answer{4});
 
-
-rng(ID); %Seed random number generator with subject ID
+rng_num = ID*SESS;
+rng(rng_num); %Seed random number generator with subject ID
 d = clock;
 
 COLORS = struct;
@@ -45,77 +48,67 @@ STIM.pracloc = [2;10;11];
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
 [imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
-picratefolder = fullfile(imgdir,'SavingsRatings');
+% picratefolder = fullfile(imgdir,'SavingsRatings');
+[mdir, ~,~] = fileparts(which('VisualSearch.m'));
+picratefolder = fullfile(mdir,'Ratings');
+%UPDATE MDIR IMGDIR PICRATEDIR LOCATIONS HERE.
 
-% try
-%     cd(picratefolder)
-% catch
-%     error('Could not find and/or open the image directory. Please check that it exists and is saved in the path.');
-% end
+%% 
 
-filen = sprintf('PicRate_%d.mat',ID);
-try
-    p = open(filen);
-catch
-    warning('Could not find and/or open the rating file.');
-    commandwindow;
-    randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
-    if randopics == 1
-        cd(imgdir);
-        p = struct;
-        p.PicRating.go = dir('Healthy*');
-        p.PicRating.no = dir('Unhealthy*');
-        %XXX: ADD RANDOMIZATION SO THAT SAME 80 IMAGES AREN'T CHOSEN
-        %EVERYTIME
-    else
-        error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
+randopics = 0;
+if COND == 1;
+    
+    try
+        cd(picratefolder)
+    catch
+        error('Could not find and/or open the image rating directory. Please check that it exists and is saved in the path.');
     end
     
+    filen = sprintf('PicRatings_CC_%d-1.mat',ID);
+    try
+        p = open(filen);
+    catch
+        warning('Could not find and/or open the rating file.');
+        commandwindow;
+        randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
+        if randopics == 1
+            cd(imgdir);
+            p = struct;
+            p.PicRating.H = dir('Healthy*');
+            p.PicRating.U = dir('Unhealthy*');
+
+        else
+            error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
+        end
+        
+    end
 end
 
 cd(imgdir);
  
 PICS =struct;
 if COND == 1;                   %Condtion = 1 is food. 
-%     PICS.in.go = dir('good*.jpg');
-%     PICS.in.no = dir('*bad*.jpg');
-%Choose top 80 most appetizing pics)
-    PICS.in.lo = struct('name',{p.PicRating.go(1:80).name}');
-    PICS.in.hi = struct('name',{p.PicRating.no(1:80).name}');
-elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
-    PICS.in.lo = dir('Bird*');
-    PICS.in.hi = dir('Flowers*');
-end
-% % 
-% % 
-% % [imgdir,~,~] = fileparts(which('VisualSearch.m'));
-% % 
-% % try
-% %     cd([imgdir filesep 'IMAGES'])
-% % catch
-% %     error('Could not find and/or open the IMAGES folder.');
-% % end
-% % 
-% % PICS =struct;
-% % % if COND == 1;                   %Condtion = 1 is food. 
-% %     PICS.in.lo = dir('good*.jpg');
-% %     PICS.in.hi = dir('*bad*.jpg');
-% % %     PICS.in.neut = dir('*water*.jpg');
-% % % elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
-% % %     PICS.in.hi = dir('*bird*.jpg');
-% % %     PICS.in.hi = dir('*flowers*.jpg');
-% % %     PICS.in.neut = dir('*mam*.jpg');
-% % % end
-% % % picsfields = fieldnames(PICS.in);
+    if randopics ==1;
+        %randomly select 60 pictures.
+        PICS.in.lo = struct('name',{p.PicRating.H(randperm(60)).name}');
+        PICS.in.hi = struct('name',{p.PicRating.U(randperm(60)).name}');
+%         PICS.in.neut = dir('Water*');
+    else
 
-picdiff = STIM.totes - length(PICS.in.lo);
-if picdiff > 0;
-    %if pic list is too short, increase it arbitrarily
-    PICS.in.lo = [PICS.in.lo; PICS.in.lo(1:picdiff)];
-elseif picdiff < 0;
-    %Pic list is too long; arbitrarily decrease it
-    PICS.in.lo = PICS.in.lo(1:STIM.totes);
+    %Choose the pre-selected random 60 from top 80 most appetizing pics)
+    PICS.in.lo = struct('name',{p.PicRating.H([p.PicRating.H.chosen]==1).name}');
+    PICS.in.hi = struct('name',{p.PicRating.U([p.PicRating.U.chosen]==1).name}');
+%     PICS.in.neut = dir('Water*');
+    end
+    
+elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
+    go_pics = dir('Bird*');
+    no_pics = dir('Flower*');
+    PICS.in.lo = struct('name',{go_pics(randperm(length(go_pics),60)).name});
+    PICS.in.hi = struct('name',{no_pics(randperm(length(no_pics),60)).name});
+%     PICS.in.neut = dir('Mam*');
 end
+% picsfields = fieldnames(PICS.in);
 
 %Check if pictures are present. If not, throw error.
 %Could be updated to search computer to look for pics...
@@ -156,7 +149,7 @@ screenNumber= max(Screen('Screens'));
 
 if DEBUG==1;
     %create a rect for the screen
-    winRect=[0 0 640 480];
+    winRect=[0 0 940 780];
     %establish the center points
     XCENTER=320;
     YCENTER=240;
@@ -193,26 +186,44 @@ rects = DrawRectsGrid();
 % color_rects = [rects(1:2,:)-10; rects(3:4,:)+10];
 
 %% Practice
+
+if COND == 1;
+    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the healthy food as quickly as you can.\n\n Swipe the screen to continue.','center','center',COLORS.WHITE,60,[],[],1.5);
+elseif COND ==2;
+    DrawFormattedText(w,'In this task, you will see a grid of 16 images of birds and flowers. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the bird as quickly as you can.\n\n Swipe the screen to continue.','center','center',COLORS.WHITE,60,[],[],1.5);
+end
+Screen('Flip',w);
+while 1
+        [~, ~, prac2button] = GetMouse();
+        if prac2button(1)
+            break
+        end
+end
+
 if prac == 1;
-    DrawFormattedText(w,' Let''s practice.\n\nSwipe on the screen to continue.','center','center',COLORS.WHITE);
+    DrawFormattedText(w,' Let''s practice.\n\nSwipe the screen to continue.','center','center',COLORS.WHITE);
     Screen('Flip',w);
 %     KbWait([],2);
     while 1
         [~, ~, prac1button] = GetMouse();
-        if prac1button
+        if prac1button(1)
             break
         end
     end
     
-    DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the healthy food as quickly as you can.\n\n Swipe on the screen to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
-    Screen('Flip',w);
+%     if COND == 1;
+%         DrawFormattedText(w,'In this task, you will see a grid of 16 images of food. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the healthy food as quickly as you can.\n\n Swipe the screen to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);
+%     elseif COND ==2;
+%         DrawFormattedText(w,'In this task, you will see a grid of 16 images of birds and flowers. It is your job to swipe on the image -- that is, tap with your finger and give a gentle swipe in any direction -- of the bird as quickly as you can.\n\n Swipe the screen to try a round.','center','center',COLORS.WHITE,60,[],[],1.5);        
+%     end
+%     Screen('Flip',w);
 %     KbWait([],2);
-    while 1
-        [~, ~, prac2button] = GetMouse();
-        if prac2button
-            break
-        end
-    end
+%     while 1
+%         [~, ~, prac2button] = GetMouse();
+%         if prac2button(1)
+%             break
+%         end
+%     end
     
     for practicernd = 1:3;
         while 1
@@ -235,12 +246,12 @@ if prac == 1;
         end
     end
     
-    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food, so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Swipe on the screen you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
+    DrawFormattedText(w,'In the real trials, you will only have 3 seconds to find the low calorie food, so you must move quickly! If you don''t find it in time, you will see "Time Expired" on the screen.\n\n Swipe the screen you are ready to move on to the task.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
 %     KbWait([],2);
     while 1
         [~, ~, prac3button] = GetMouse();
-        if prac3button
+        if prac3button(1)
             break
         end
     end
@@ -252,10 +263,17 @@ end
 %% The Task
 
 for block = 1:STIM.blocks;
-    ibt = sprintf('Prepare for Block %d. \n\n\nSwipe on the screen when you are ready to begin.',block);
+    FlushEvents()
+    ibt = sprintf('Prepare for Block %d. \n\n\nSwipe the screen when you are ready to begin.',block);
     DrawFormattedText(w,ibt,'center','center',COLORS.WHITE);
     Screen('Flip',w);
-    KbWait();
+    WaitSecs(.5);
+    while 1
+        [~, ~, cont1button] = GetMouse();
+        if cont1button(1)
+            break
+        end
+    end
     
     for trial = 1:STIM.trials;
         [pics] = DrawPics4Trial(trial,block);
@@ -265,7 +283,7 @@ for block = 1:STIM.blocks;
         WaitSecs(.5);
     end
     
-    %Interblock stats.
+        %Interblock stats.
     Screen('Flip',w);   %clear screen first.
     
     block_text = sprintf('Block %d Results',block);
@@ -276,12 +294,12 @@ for block = 1:STIM.blocks;
     if isempty(c)
         %Don't try to calculate avg RT, they got them all wrong (WTF?)
         %Display "N/A" for this block's RT.
-        fulltext = sprintf('Number Correct:\t%d of %d\nPercent Correct:\t%4.1f%%\nAverage RT:\tUnable to calculate RT due to 0 correct trials.',length(find(c)),STIM.trials,corr_per);
+        fulltext = sprintf('Number Correct:    %d of %d\nPercent Correct:     %4.1f%%\nAverage RT:     Unable to calculate RT due to 0 correct trials.',length(find(c)),STIM.trials,corr_per);
         
     else
         blockrts = VST.data.rt(c,block);                                         %Resample RT only if correct.
         VST.data.avg_rt(block) = fix(mean(blockrts)*1000);                       %Display avg rt in milliseconds.
-        fulltext = sprintf('Number Correct:\t%d of %d\nPercent Correct:\t%4.1f%%\nAverage RT:\t\t\t%3d milliseconds',length(find(c)),STIM.trials,corr_per,VST.data.avg_rt(block));
+        fulltext = sprintf('Number Correct:     %d of %d\nPercent Correct:     %4.1f%%\nAverage RT:     %3d milliseconds',length(find(c)),STIM.trials,corr_per,VST.data.avg_rt(block));
 
     end
     
@@ -301,25 +319,61 @@ for block = 1:STIM.blocks;
             %Don't try to calculate RT, they have missed EVERY SINGLE GO
             %TRIAL! 
             %Stop task & alert experimenter?
-            fullblocktext = sprintf('Number Correct:\t\t%d of %d\nPercent Correct:\t\t%4.1f%%\nAverage RT:\tUnable to calculate RT due to 0 correct trials.',length(find(totes_c)),tot_trial,corr_per_totes);            
+            fullblocktext = sprintf('Number Correct:     %d of %d\nPercent Correct:     %4.1f%%\nAverage RT:     Unable to calculate RT due to 0 correct trials.',length(find(totes_c)),tot_trial,corr_per_totes);            
         else
             tote_rts = VST.data.rt(totes_c);
             avg_rt_tote = fix(mean(tote_rts)*1000);     %Display in units of milliseconds.
-            fullblocktext = sprintf('Number Correct:\t\t%d of %d\nPercent Correct:\t\t%4.1f%%\nAverage RT:\t\t\t%3d milliseconds',length(find(totes_c)),tot_trial,corr_per_totes,avg_rt_tote);
+            fullblocktext = sprintf('Number Correct:     %d of %d\nPercent Correct:     %4.1f%%\nAverage RT:     %3d milliseconds',length(find(totes_c)),tot_trial,corr_per_totes,avg_rt_tote);
 
         end
         
         DrawFormattedText(w,'Total Results','center',ibt_ydim+120,COLORS.WHITE);
         DrawFormattedText(w,fullblocktext,ibt_xdim,YCENTER+40,COLORS.WHITE,[],[],[],1.5);
     end
-    DrawFormattedText(w,'Swipe on the screen to continue','center',wRect(4)*9/10,COLORS.WHITE);
+    DrawFormattedText(w,'Swipe the screen to continue','center',wRect(4)*9/10,COLORS.WHITE);
     Screen('Flip',w);
-    KbWait([],2);
+    while 1
+        [~, ~, contbutton] = GetMouse();
+        if contbutton(1)
+            break
+        end
+    end
+  
 end
 
 %% Save
+%Export VST to text and save with subject number.
+%find the mfilesdir by figuring out where Veling_SST.m is kept
+% [mfilesdir,~,~] = fileparts(which('Veling_SST.m'));
 
-% XXX: Need save function here.
+%get the parent directory, which is one level up from mfilesdir
+%[parentdir,~,~] =fileparts(mfilesdir);
+savedir = [mdir filesep 'Results' filesep];
+savename = ['VST_' num2str(ID) '-' num2str(SESS) '.mat'];
+
+if exist(savename,'file')==2;
+    savename = ['VST' num2str(ID) sprintf('%s_%2.0f%02.0f',date,d(4),d(5)) '.mat'];
+end
+    
+try
+    save([savedir savename],'VST');
+    
+catch
+    try
+        warning('Something is amiss with this save. Retrying to save in: %s',mdir);
+        save([mdir filesep savename],'VST');
+    catch
+        warning('STILL problems saving. Now saving in: %s \nIt is recommended that you find this file, rename it %s and save it to an appropriate location',pwd,savename);
+        save VST
+    end
+end
+
+DrawFormattedText(w,'Thank you for participating!\n Please let the assessor know you are ready to coninue.','center','center',COLORS.WHITE);
+Screen('Flip', w);
+WaitSecs(10);
+
+sca
+
 end
 
 %%
